@@ -1,22 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useFrame, useThree, extend } from '@react-three/fiber';
+import React, { useState, useRef, useEffect } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Text, Shadow } from '@react-three/drei';
-import { SphereGeometry } from 'three';
 import * as THREE from 'three';
-
-// Extend R3F to include SphereGeometry
-extend({ SphereGeometry });
-
-function useSmoothScroll(speed = 0.1) {
-  const [target, setTarget] = useState(0);
-  const current = useRef(0);
-
-  useFrame(() => {
-    current.current += (target - current.current) * speed;
-  });
-
-  return [current, setTarget];
-}
+import stores from '../stores'; // Import the store data
 
 function Store({ position, color, name, rotation, onClick }) {
   const [hovered, setHovered] = useState(false);
@@ -51,105 +37,66 @@ function Store({ position, color, name, rotation, onClick }) {
   );
 }
 
-function Mall({ selectedStore, onStoreClick, onStoreVisible, stores }) {
-  const [rotation, setRotation] = useSmoothScroll();
+function Mall({ selectedStore, onStoreClick }) {
   const groupRef = useRef();
-  const { camera, scene } = useThree();
-
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [cameraAngle, setCameraAngle] = useState(0);
-  const [cameraRadius, setCameraRadius] = useState(10);
-
-  const handleMouseDown = useCallback((e) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX, y: e.clientY });
-  }, []);
-
-  const handleMouseMove = useCallback(
-    (e) => {
-      if (isDragging) {
-        const deltaX = (e.clientX - dragStart.x) * 0.005;
-        const deltaY = (e.clientY - dragStart.y) * 0.005;
-
-        setCameraAngle((prevAngle) => prevAngle + deltaX);
-        setCameraRadius((prevRadius) => Math.max(5, prevRadius - deltaY));
-
-        const currentStorePosition = new THREE.Vector3(
-          Math.sin(-rotation.current) * 8 * 1.5,
-          1.5,
-          Math.cos(-rotation.current) * 8 * 1.5
-        );
-
-        const x = currentStorePosition.x + Math.sin(cameraAngle) * cameraRadius;
-        const z = currentStorePosition.z + Math.cos(cameraAngle) * cameraRadius;
-
-        camera.position.set(x, camera.position.y, z);
-        camera.lookAt(currentStorePosition);
-      }
-    },
-    [isDragging, dragStart, camera, cameraAngle, cameraRadius, rotation]
-  );
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-    const currentStorePosition = new THREE.Vector3(
-      Math.sin(-rotation.current) * 8 * 1.5,
-      1.5,
-      Math.cos(-rotation.current) * 8 * 1.5
-    );
-    const defaultPosition = currentStorePosition.clone().add(new THREE.Vector3(0, 0, cameraRadius));
-    camera.position.set(defaultPosition.x, camera.position.y, defaultPosition.z);
-    camera.lookAt(currentStorePosition);
-  }, [camera, rotation, cameraRadius]);
+  const { camera } = useThree();
+  const [rotation, setRotation] = useState(0);
 
   useEffect(() => {
-    scene.fog = new THREE.Fog('#f0f0f0', 10, 30);
-    const handleWheel = (e) => {
-      setRotation((current) => current - e.deltaY * 0.001);
-    };
-    window.addEventListener('wheel', handleWheel);
-    window.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [handleMouseDown, handleMouseMove, handleMouseUp, setRotation, scene]);
-
-  useEffect(() => {
-    if (selectedStore !== null) {
+    
+    if (selectedStore !== null && selectedStore >= 0 && selectedStore < stores.length) {
+      const store = stores[selectedStore];
       const angle = (selectedStore / stores.length) * Math.PI * 2;
-      setRotation(-angle);
       const x = Math.sin(angle) * 8;
       const z = Math.cos(angle) * 8;
-      const targetPosition = [x * 1.5, 1.5, z * 1.5];
-      camera.position.set(targetPosition[0] + 10, targetPosition[1] + 2, targetPosition[2] + 10); // Initial camera position
-      camera.lookAt(targetPosition[0], targetPosition[1], targetPosition[2]);
-      setCameraAngle(0); // Reset camera angle
-      setCameraRadius(10); // Reset camera radius
+      const targetPosition = new THREE.Vector3(x * 1.5, 1, z * 1.5);
+
+      // Define the new camera position and orientation
+      const distance = 10; // Distance from the store
+      const cameraPosition = new THREE.Vector3(
+        targetPosition.x + Math.sin(angle) * distance/1.2,
+        targetPosition.y + distance / 15,
+        targetPosition.z + Math.cos(angle) * distance/1.2
+      );
+
+      // Smoothly move the camera to the new position
+      const duration = 1000; // Duration in milliseconds
+      const startPosition = camera.position.clone();
+      const endPosition = cameraPosition;
+
+      const startRotation = camera.rotation.clone();
+      const endRotation = new THREE.Euler(
+        Math.atan2(targetPosition.y - camera.position.y, targetPosition.z - camera.position.z),
+        Math.atan2(targetPosition.x - camera.position.x, targetPosition.z - camera.position.z),
+        0
+      );
+
+      let startTime = performance.now();
+
+      const animate = (time) => {
+        let elapsed = time - startTime;
+        let progress = Math.min(elapsed / duration, 1);
+
+        camera.position.lerpVectors(startPosition, endPosition, progress);
+        camera.rotation.set(
+          THREE.MathUtils.lerp(startRotation.x, endRotation.x, progress),
+          THREE.MathUtils.lerp(startRotation.y, endRotation.y, progress),
+          0
+        );
+        camera.lookAt(targetPosition);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        }
+      };
+
+      requestAnimationFrame(animate);
     }
-  }, [selectedStore, stores.length, setRotation, camera]);
+  }, [selectedStore, camera]);
 
   useFrame(() => {
     if (groupRef.current) {
-      groupRef.current.rotation.y = rotation.current;
-
-      const radius = 5;
-      const height = 1.5;
-      const angle = -rotation.current;
-      const x = Math.sin(angle) * radius;
-      const z = Math.cos(angle) * radius;
-
-      camera.position.set(x, height, z);
-
-      const lookAtRadius = radius + 3;
-      const lookAtX = Math.sin(angle) * lookAtRadius;
-      const lookAtZ = Math.cos(angle) * lookAtRadius;
-      camera.lookAt(lookAtX, height, lookAtZ);
+      groupRef.current.rotation.y = rotation;
     }
   });
 
@@ -173,12 +120,12 @@ function Mall({ selectedStore, onStoreClick, onStoreVisible, stores }) {
           <group key={index}>
             <Store
               position={[x * 1.5, 1.5, z * 1.5]}
-              rotation={[0, angle + Math.PI, 0]}
+              rotation={[0, angle + Math.PI*2, 0]}
               color={store.color}
               name={store.name}
               onClick={() => onStoreClick(index)}
             />
-            <pointLight position={[x, 5, z]} intensity={10.5} distance={100} castShadow>
+            <pointLight position={[x*2, 5, z*2]} intensity={10.5} distance={100} castShadow>
               <mesh>
                 <sphereGeometry args={[0.1, 16, 16]} />
                 <meshBasicMaterial color="#ffff00" />
