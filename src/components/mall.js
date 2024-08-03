@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Text, Shadow } from '@react-three/drei';
 import * as THREE from 'three';
 import stores from '../stores'; // Import the store data
@@ -8,23 +9,37 @@ function Store({ position, color, name, rotation, onClick }) {
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
   const meshRef = useRef();
+  const [gltf, setGltf] = useState(null);
+
+  useEffect(() => {
+    const loader = new GLTFLoader();
+    loader.load(
+      '/models/small_store.glb',
+      (gltf) => {
+        setGltf(gltf.scene);
+      },
+      undefined,
+      (error) => {
+        console.error('An error happened', error);
+      }
+    );
+  }, []);
 
   return (
-    <group position={position} rotation={rotation}>
-      <mesh
-        ref={meshRef}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
-        onClick={onClick}
-        castShadow
-        receiveShadow
-      >
-        <boxGeometry args={[4, 3, 4]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
+    <group position={position} rotation={rotation} onClick={onClick}>
+      {gltf && (
+        <primitive
+          object={gltf}
+          scale={[0.08, 0.08, 0.08]} // Adjust the scale as needed
+          onPointerOver={() => setHovered(true)}
+          onPointerOut={() => setHovered(false)}
+          castShadow
+          receiveShadow
+        />
+      )}
       <Shadow opacity={0.3} scale={[4, 4, 1]} position={[0, -1.5, 0]} />
       {hovered && (
-        <Text position={[0, 2, 2.1]} fontSize={0.5} color="black" anchorX="center" anchorY="middle">
+        <Text position={[0, 3.3, 2.1]} fontSize={0.5} color="black" anchorX="center" anchorY="middle">
           {name}
         </Text>
       )}
@@ -43,7 +58,6 @@ function Mall({ selectedStore, onStoreClick }) {
   const [rotation, setRotation] = useState(0);
 
   useEffect(() => {
-    
     if (selectedStore !== null && selectedStore >= 0 && selectedStore < stores.length) {
       const store = stores[selectedStore];
       const angle = (selectedStore / stores.length) * Math.PI * 2;
@@ -51,16 +65,14 @@ function Mall({ selectedStore, onStoreClick }) {
       const z = Math.cos(angle) * 8;
       const targetPosition = new THREE.Vector3(x * 1.5, 1, z * 1.5);
 
-      // Define the new camera position and orientation
-      const distance = 10; // Distance from the store
+      const distance = 10; 
       const cameraPosition = new THREE.Vector3(
-        targetPosition.x + Math.sin(angle) * distance/1.2,
+        targetPosition.x + Math.sin(angle) * distance / 1.2,
         targetPosition.y + distance / 15,
-        targetPosition.z + Math.cos(angle) * distance/1.2
+        targetPosition.z + Math.cos(angle) * distance / 1.2
       );
 
-      // Smoothly move the camera to the new position
-      const duration = 1000; // Duration in milliseconds
+      const duration = 1000; 
       const startPosition = camera.position.clone();
       const endPosition = cameraPosition;
 
@@ -119,7 +131,7 @@ function Mall({ selectedStore, onStoreClick }) {
         return (
           <group key={index}>
             <Store
-              position={[x * 1.5, 1.5, z * 1.5]}
+              position={[x * 1.5, 1, z * 1.5]}
               rotation={[0, angle + Math.PI*2, 0]}
               color={store.color}
               name={store.name}
