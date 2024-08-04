@@ -33,14 +33,14 @@ function StoreModel({ position, color, name, rotation, onClick, modelUrl }) {
           receiveShadow
         />
       )}
-      <Shadow opacity={0.3} scale={[4, 4, 1]} position={[0, -1.5, 0]} />
+      <Shadow opacity={1.3} scale={[4, 4, 1]} position={[0, 0, 0]} />
       {hovered && (
         <Text position={[0, 3.3, 2.1]} fontSize={0.5} color="black" anchorX="center" anchorY="middle">
           {name}
         </Text>
       )}
       {clicked && (
-        <Text position={[0, -2, 2.1]} fontSize={0.3} color="black" anchorX="center" anchorY="middle">
+        <Text position={[0, 3, 2.1]} fontSize={0.3} color="black" anchorX="center" anchorY="middle">
           Click to enter {name}
         </Text>
       )}
