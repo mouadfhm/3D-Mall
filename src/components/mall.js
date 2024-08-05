@@ -86,7 +86,7 @@ function Mall({ selectedStore, onStoreClick }) {
 
       <mesh rotation={[Math.PI / 1, 0, 0]} position={[0, 6, 0]}>
         <cylinderGeometry args={[100, 10, 0.5, 64]} />
-        <meshStandardMaterial color="#e0e0e0" />
+        <meshStandardMaterial color="#ffffff" />
       </mesh>
 
       {stores.map((store, index) => {
